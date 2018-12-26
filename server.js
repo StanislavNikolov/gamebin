@@ -4,10 +4,8 @@ const port    = 8081;
 const multer  = require('multer');
 const fs      = require('fs');
 
-// TODO can be replaced with a more lightweight alternative
-const mustache = require('mustache');
-
-const idBroker = require('./id_broker.js');
+const idBroker     = require('./id_broker.js');
+const htmlRenderer = require('./html_renderer.js');
 
 const multerStorage = multer.diskStorage({
 	destination: (req, file, cb) => cb(null, __dirname + '/tmp/'),
@@ -20,27 +18,6 @@ const multerUpload = multer({
                             limits: {fileSize: 50 * KILOBYTE}
                      });
 
-const HTML_loadgame = `
-<html>
-<head>
-<style>
-    body, canvas {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-    }
-</style>
-</head>
-<body onload="init()">
-	<canvas id="canvas-id" width="800" height="600">
-		<script src="/common/prepishtov.js"></script>
-		<script src="/ujs/{{gameId}}.js"></script>
-		<script src="/common/afterpishtov.js"></script>
-	</canvas>
-</body>
-</html>
-`;
-
 app.get('/', (req, res) => res.redirect('/upload'));
 
 app.get('/game/:gameId', (req, res) => {
@@ -50,13 +27,13 @@ app.get('/game/:gameId', (req, res) => {
 		res.status(404).send('wrong game id');
 		return;
 	}
+
 	const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
 	console.log('get', gameId, ip);
-	res.send(mustache.render(HTML_loadgame, {gameId: gameId}));
+	res.send(htmlRenderer.getLoadGameHTML(gameId));
 });
 
 app.get('/ujs/:gameId.js', (req, res) => {
-	// TODO SECURITY big security hole
 	res.sendFile(__dirname + '/ujs/' + req.params.gameId);
 });
 
