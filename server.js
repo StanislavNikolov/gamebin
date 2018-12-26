@@ -1,20 +1,17 @@
 const express = require('express');
 const app     = express();
 const port    = 8081;
-const mustache = require('mustache');
 const multer  = require('multer');
 const fs      = require('fs');
 
-const randomString = (len) => {
-	let out = "";
-	const possible = "abcdefghijklmnopqrstuvwxyz";
-	for(let i = 0;i < len;i ++) out += possible[Math.floor(Math.random() * possible.length)];
-	return out;
-}
+// TODO can be replaced with a more lightweight alternative
+const mustache = require('mustache');
+
+const idBroker = require('./id_broker.js');
 
 const multerStorage = multer.diskStorage({
 	destination: (req, file, cb) => cb(null, __dirname + '/tmp/'),
-	filename   : (req, file, cb) => cb(null, randomString(10))
+	filename   : (req, file, cb) => cb(null, idBroker.getRandomString(10))
 });
 
 const KILOBYTE = 1000;
@@ -44,13 +41,12 @@ const HTML_loadgame = `
 </html>
 `;
 
-const checkGameExists = (gameId) => fs.existsSync(__dirname + '/ujs/' + gameId);
-
 app.get('/', (req, res) => res.redirect('/upload'));
 
 app.get('/game/:gameId', (req, res) => {
 	const gameId = req.params.gameId;
-	if(!checkGameExists(gameId)) {
+
+	if(!idBroker.checkId(gameId) || !idBroker.checkGameExists(gameId)) {
 		res.status(404).send('wrong game id');
 		return;
 	}
@@ -68,14 +64,6 @@ app.get('/upload', (req, res) => {
 	res.sendFile(__dirname + '/upload.html');
 });
 
-const nextGameId = () => {
-	let id;
-	do {
-		id = randomString(4);
-	} while(checkGameExists(id));
-	return id;
-};
-
 app.post('/upload', (req, res) => {
 	multerUpload.single('gamejs')(req, res, (err) => {
 		if(err) {
@@ -92,7 +80,7 @@ app.post('/upload', (req, res) => {
 			return;
 		}
 
-		const newGameId = nextGameId();
+		const newGameId = idBroker.getNewId();
 
 		console.log('uploaded new game:', newGameId);
 
