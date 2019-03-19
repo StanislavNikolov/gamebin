@@ -57,6 +57,8 @@ app.post('/upload', (req, res) => {
 			return;
 		}
 
+		if(req.file == null) return;
+
 		const newGameId = idBroker.getNewId();
 
 		console.log('uploaded new game:', newGameId);
