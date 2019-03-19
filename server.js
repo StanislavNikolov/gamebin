@@ -29,7 +29,7 @@ app.get('/game/:gameId', (req, res) => {
 	}
 
 	const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-	console.log('get', gameId, ip);
+	console.log(`${new Date().toISOString()} get`, gameId, ip);
 	res.send(htmlRenderer.getLoadGameHTML(gameId));
 });
 
@@ -61,7 +61,8 @@ app.post('/upload', (req, res) => {
 
 		const newGameId = idBroker.getNewId();
 
-		console.log('uploaded new game:', newGameId);
+		const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+		console.log(`${new Date().toISOString()} upload`, newGameId, ip);
 
 		fs.rename(req.file.path, __dirname + '/ujs/' + newGameId, (err) => {
 			if(err) throw err;
