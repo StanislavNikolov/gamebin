@@ -71,6 +71,23 @@ app.post('/upload', (req, res) => {
 	});
 });
 
+app.get('/list', (req, res) => {
+	const path = `${__dirname}/ujs`;
+	let result_html = '';
+	fs.readdir(path, (err, files) => {
+		let arr = [];
+		for(const file of files) {
+			const date = new Date(fs.statSync(`${path}/${file}`).mtime.getTime());
+			arr.push({date: date, file: file});
+		}
+		arr.sort((a, b) => a.date - b.date);
+		for(const p of arr) {
+			result_html += `<a href="/game/${p.file}">${p.file}</a> - ${p.date}<br>`;
+		}
+		res.send(result_html);
+	});
+});
+
 app.listen(port, () => console.log(`Listening on port ${port}!`));
 
 app.use('/common', express.static(__dirname + '/common'));
