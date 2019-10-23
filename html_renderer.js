@@ -21,7 +21,7 @@ const HTML_loadgame = `
 		.then(resp => resp.text())
 		.then(code => {
 			console.log(code);
-			document.getElementById('code_preview').firstChild.firstChild.innerHTML = code;
+			document.getElementById('code_preview').firstChild.firstChild.textContent = code;
 			Prism.highlightAll();
 		});
 	</script>
