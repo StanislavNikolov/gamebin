@@ -91,6 +91,7 @@ app.get('/list', (req, res) => {
 app.listen(port, () => console.log(`Listening on port ${port}!`));
 
 app.use('/common', express.static(__dirname + '/common'));
+app.use('/prism',  express.static(__dirname + '/node_modules/prismjs'));
 
 app.get('/noty.css',     (req, res) => res.sendFile(__dirname + '/node_modules/noty/lib/noty.css'));
 app.get('/noty.min.js',  (req, res) => res.sendFile(__dirname + '/node_modules/noty/lib/noty.min.js'));
