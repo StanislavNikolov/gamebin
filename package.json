@@ -1,8 +1,7 @@
 {
   "dependencies": {
     "express": "^4.16.4",
-    "multer": "^1.4.1",
-    "noty": "^3.1.4",
-    "prismjs": "^1.17.1"
+    "express-fileupload": "^1.1.7-alpha.3",
+    "noty": "^3.1.4"
   }
 }

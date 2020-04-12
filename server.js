@@ -1,18 +1,13 @@
 const express = require('express');
 const app     = express();
 const port    = 3110;
-const multer  = require('multer');
 const fs      = require('fs');
 
 const idBroker     = require('./id_broker.js');
 
-const multerStorage = multer.diskStorage({
-	destination: (req, file, cb) => cb(null, __dirname + '/tmp/'),
-	filename   : (req, file, cb) => cb(null, idBroker.getRandomString(10))
-});
-
-const KILOBYTE = 1000;
-const multerUpload = multer({ storage: multerStorage, limits: {fileSize: 50 * KILOBYTE} });
+const fileUpload = require('express-fileupload');
+const MAX_FILE_SIZE = 50 * 1000; // in bytes
+app.use(fileUpload({ limits: { fileSize: MAX_FILE_SIZE } }));
 
 app.use('/pishtov', express.static(__dirname + '/pishtov'));
 
@@ -40,33 +35,41 @@ app.get('/game/:gameId/images/:image', (req, res) => {
 	res.redirect(`../../../pishtov/images/${req.params.image}`);
 });
 
+const addGameJS = (code, callback) => {
+	const newGameId = idBroker.getNewId();
+
+	fs.writeFile(`ujs/${newGameId}`, code, (err) => {
+		if(err) callback(err, null);
+		else callback(null, newGameId);
+	});
+};
+
 app.post('/upload', (req, res) => {
-	multerUpload.single('gamejs')(req, res, (err) => {
+	const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+
+	let code = null;
+	if(req.body != null && req.body.textarea != null && req.body.textarea.length > 0) {
+		// using textarea, ignoring file
+		code = req.body.textarea;
+	} else if(req.file != null && req.files.file != null) {
+		// using file upload
+		code = req.files.file.data;
+	}
+
+	if(code == null) {
+		console.log(`${new Date().toISOString()} upload`, ip, 'FAILED - did not send anthing');
+		res.send('failed');
+		return;
+	}
+
+	addGameJS(code, (err, newGameId) => {
 		if(err) {
-			if(err.code === "LIMIT_FILE_SIZE") {
-				console.log('someone tried to upload too big file');
-				res.send('File too large');
-				return;
-			}
-
-			// TODO this codepath is not well tested
-
-			console.log(err);
-			res.send('Unkown error');
+			console.log(`${new Date().toISOString()} upload`, ip, 'FAILED - error in addGameJS', err);
+			res.send('failed');
 			return;
 		}
-
-		if(req.file == null) return;
-
-		const newGameId = idBroker.getNewId();
-
-		const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-		console.log(`${new Date().toISOString()} upload`, newGameId, ip);
-
-		fs.rename(req.file.path, __dirname + '/ujs/' + newGameId, (err) => {
-			if(err) throw err;
-			res.redirect(`game/${newGameId}/`);
-		});
+		res.redirect(`../game/${newGameId}/`);
+		console.log(`${new Date().toISOString()} upload`, ip, 'OK', newGameId);
 	});
 });
 
