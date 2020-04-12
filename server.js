@@ -1,11 +1,10 @@
 const express = require('express');
 const app     = express();
-const port    = 8081;
+const port    = 3110;
 const multer  = require('multer');
 const fs      = require('fs');
 
 const idBroker     = require('./id_broker.js');
-const htmlRenderer = require('./html_renderer.js');
 
 const multerStorage = multer.diskStorage({
 	destination: (req, file, cb) => cb(null, __dirname + '/tmp/'),
@@ -13,14 +12,18 @@ const multerStorage = multer.diskStorage({
 });
 
 const KILOBYTE = 1000;
-const multerUpload = multer({
-                            storage: multerStorage,
-                            limits: {fileSize: 50 * KILOBYTE}
-                     });
+const multerUpload = multer({ storage: multerStorage, limits: {fileSize: 50 * KILOBYTE} });
 
-app.get('/', (req, res) => res.redirect('/upload'));
+app.use('/pishtov', express.static(__dirname + '/pishtov'));
 
-app.get('/game/:gameId', (req, res) => {
+app.get('/',              (req, res) => res.redirect(`upload`));
+app.get('/upload',        (req, res) => res.sendFile('upload.html', { root: __dirname }));
+app.get('/game/:gameId/', (req, res) => res.sendFile('pishtov/start.html', { root: __dirname }));
+
+app.get('/noty.css',      (req, res) => res.sendFile(__dirname + '/node_modules/noty/lib/noty.css'));
+app.get('/noty.min.js',   (req, res) => res.sendFile(__dirname + '/node_modules/noty/lib/noty.min.js'));
+
+app.get('/game/:gameId/game.js', (req, res) => {
 	const gameId = req.params.gameId;
 
 	if(!idBroker.checkId(gameId) || !idBroker.checkGameExists(gameId)) {
@@ -30,15 +33,11 @@ app.get('/game/:gameId', (req, res) => {
 
 	const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
 	console.log(`${new Date().toISOString()} get`, gameId, ip);
-	res.send(htmlRenderer.getLoadGameHTML(gameId));
+	res.sendFile(`ujs/${req.params.gameId}`, { root: __dirname });
 });
 
-app.get('/ujs/:gameId.js', (req, res) => {
-	res.sendFile(__dirname + '/ujs/' + req.params.gameId);
-});
-
-app.get('/upload', (req, res) => {
-	res.sendFile(__dirname + '/upload.html');
+app.get('/game/:gameId/images/:image', (req, res) => {
+	res.redirect(`../../../pishtov/images/${req.params.image}`);
 });
 
 app.post('/upload', (req, res) => {
@@ -66,7 +65,7 @@ app.post('/upload', (req, res) => {
 
 		fs.rename(req.file.path, __dirname + '/ujs/' + newGameId, (err) => {
 			if(err) throw err;
-			res.redirect('/game/' + newGameId);
+			res.redirect(`game/${newGameId}/`);
 		});
 	});
 });
@@ -82,16 +81,10 @@ app.get('/list', (req, res) => {
 		}
 		arr.sort((a, b) => a.date - b.date);
 		for(const p of arr) {
-			result_html += `<a href="/game/${p.file}">${p.file}</a> - ${p.date}<br>`;
+			result_html += `<a href="game/${p.file}/">${p.file}</a> - ${p.date}<br>`;
 		}
 		res.send(result_html);
 	});
 });
 
 app.listen(port, () => console.log(`Listening on port ${port}!`));
-
-app.use('/common', express.static(__dirname + '/common'));
-app.use('/prism',  express.static(__dirname + '/node_modules/prismjs'));
-
-app.get('/noty.css',     (req, res) => res.sendFile(__dirname + '/node_modules/noty/lib/noty.css'));
-app.get('/noty.min.js',  (req, res) => res.sendFile(__dirname + '/node_modules/noty/lib/noty.min.js'));

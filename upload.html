@@ -93,7 +93,7 @@ body {
 </head>
 <body>
 	<div id="mainpage">
-	<form action="/upload" method="post" enctype="multipart/form-data" id="form">
+	<form action="upload" method="post" enctype="multipart/form-data" id="form">
 		<div class="upload-btn-wrapper">
 		<button class="upload-btn todo-zone" id="zone">Цъкни тук за да качиш своят game.js</button>
 		<input type=file name="gamejs" id="fileUploadInput" oninput="giveUserFeedback()" />
@@ -102,7 +102,7 @@ body {
 		<button type=button class="coolbtn disabledbtn" id="submit-btn" onclick="userClick()"> Готов съм! </button>
 	</form>
 	</div>
-	<script src="/noty.min.js" type="text/javascript"></script>
+	<script src="noty.min.js" type="text/javascript"></script>
 	<script>
 	const showUser = (type, msg) => {
 		new Noty({
