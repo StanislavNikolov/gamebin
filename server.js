@@ -46,6 +46,11 @@ app.get('/game/:gameId/images/:image', (req, res) => {
 });
 
 const addGameJS = (code, callback) => {
+	if(code.length >= MAX_FILE_SIZE) {
+		callback('File too big', null);
+		return;
+	}
+
 	const newGameId = idBroker.getNewId();
 
 	fs.writeFile(`ujs/${newGameId}`, code, (err) => {
@@ -61,7 +66,7 @@ app.post('/upload', uploadFileLimiter, (req, res) => {
 	if(req.body != null && req.body.textarea != null && req.body.textarea.length > 0) {
 		// using textarea, ignoring file
 		code = req.body.textarea;
-	} else if(req.file != null && req.files.file != null) {
+	} else if(req.files != null && req.files.file != null) {
 		// using file upload
 		code = req.files.file.data;
 	}
