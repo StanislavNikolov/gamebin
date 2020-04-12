@@ -3,11 +3,21 @@ const app     = express();
 const port    = 3110;
 const fs      = require('fs');
 
+const rateLimit  = require("express-rate-limit");
+const fileUpload = require('express-fileupload');
+
 const idBroker     = require('./id_broker.js');
 
-const fileUpload = require('express-fileupload');
+
 const MAX_FILE_SIZE = 50 * 1000; // in bytes
 app.use(fileUpload({ limits: { fileSize: MAX_FILE_SIZE } }));
+
+app.set('trust proxy', 1);
+const uploadFileLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour window
+  max: 60,
+  message: "Too many uploads from this IP, please try again after an hour"
+});
 
 app.use('/pishtov', express.static(__dirname + '/pishtov'));
 
@@ -44,7 +54,7 @@ const addGameJS = (code, callback) => {
 	});
 };
 
-app.post('/upload', (req, res) => {
+app.post('/upload', uploadFileLimiter, (req, res) => {
 	const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
 
 	let code = null;
