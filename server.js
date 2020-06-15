@@ -6,8 +6,12 @@ const fs      = require('fs');
 const rateLimit  = require("express-rate-limit");
 const fileUpload = require('express-fileupload');
 
-const idBroker     = require('./id_broker.js');
-
+const { Pool } = require('pg');
+const db = new Pool({
+	host: 'localhost',
+	user: 'postgres',
+	database: 'gamebin',
+});
 
 const MAX_FILE_SIZE = 50 * 1000; // in bytes
 app.use(fileUpload({ limits: { fileSize: MAX_FILE_SIZE } }));
@@ -19,6 +23,7 @@ const uploadFileLimiter = rateLimit({
   message: "Too many uploads from this IP, please try again after an hour"
 });
 
+
 app.use('/pishtov', express.static(__dirname + '/pishtov'));
 
 app.get('/',              (req, res) => res.redirect(`upload`));
@@ -28,35 +33,57 @@ app.get('/game/:gameId/', (req, res) => res.sendFile('pishtov/start.html', { roo
 app.get('/noty.css',      (req, res) => res.sendFile(__dirname + '/node_modules/noty/lib/noty.css'));
 app.get('/noty.min.js',   (req, res) => res.sendFile(__dirname + '/node_modules/noty/lib/noty.min.js'));
 
-app.get('/game/:gameId/game.js', (req, res) => {
-	const gameId = req.params.gameId;
+app.get('/game/:shorthand/game.js', async (req, res) => {
+	try {
+		const shorthand = req.params.shorthand;
+		const SQL = `
+			SELECT content
+			FROM files
+			JOIN games ON game_id = games.id
+			WHERE games.shorthand = $1
+		`;
 
-	if(!idBroker.checkId(gameId) || !idBroker.checkGameExists(gameId)) {
-		res.status(404).send('wrong game id');
-		return;
+		const {rows} = await db.query(SQL, [shorthand]);
+		if(rows.length === 0) {
+			res.status(404).send("No such game");
+			return;
+		}
+
+		res.send(rows[0].content);
+	} catch(error) {
+		console.error(error);
+		res.status(500).send("Something went wrong :<");
 	}
-
-	const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-	console.log(`${new Date().toISOString()} get`, gameId, ip);
-	res.sendFile(`ujs/${req.params.gameId}`, { root: __dirname });
 });
 
 app.get('/game/:gameId/images/:image', (req, res) => {
 	res.redirect(`../../../pishtov/images/${req.params.image}`);
 });
 
-const addGameJS = (code, callback) => {
-	if(code.length >= MAX_FILE_SIZE) {
-		callback('File too big', null);
-		return;
+const addGameJS = async (shorthand, code, ip) => {
+	const client = await db.connect();
+
+	try {
+		await client.query('BEGIN');
+		const insertGameSQL = `
+			INSERT INTO games(is_public, shorthand, pishtov_version, uploader_ip, upload_date)
+			VALUES($1, $2, $3, $4, $5) RETURNING id `;
+		const gres = await client.query(insertGameSQL, [true, shorthand, 'asd', ip, new Date()]);
+
+		const insertFileSQL = `
+			INSERT INTO files(game_id, content, is_obfuscated)
+			VALUES ($1, $2, $3)`;
+		await client.query(insertFileSQL, [gres.rows[0].id, code, false]);
+
+		await client.query('COMMIT');
+
+		return gres.rows[0].id;
+	} catch (e) {
+		await client.query('ROLLBACK');
+		throw e;
+	} finally {
+		client.release();
 	}
-
-	const newGameId = idBroker.getNewId();
-
-	fs.writeFile(`ujs/${newGameId}`, code, (err) => {
-		if(err) callback(err, null);
-		else callback(null, newGameId);
-	});
 };
 
 app.post('/upload', uploadFileLimiter, (req, res) => {
@@ -71,20 +98,27 @@ app.post('/upload', uploadFileLimiter, (req, res) => {
 		code = req.files.file.data;
 	}
 
+	if(code.length >= MAX_FILE_SIZE) {
+		console.log(`${new Date().toISOString()} upload`, ip, `FAILED - file too big ${code.length}`);
+		res.send('file too big');
+		return;
+	}
+
 	if(code == null) {
-		console.log(`${new Date().toISOString()} upload`, ip, 'FAILED - did not send anthing');
+		console.log(`${new Date().toISOString()} upload`, ip, 'FAILED - did not send anything');
 		res.send('failed');
 		return;
 	}
 
-	addGameJS(code, (err, newGameId) => {
-		if(err) {
-			console.log(`${new Date().toISOString()} upload`, ip, 'FAILED - error in addGameJS', err);
-			res.send('failed');
-			return;
-		}
-		res.redirect(`../game/${newGameId}/`);
+	const shorthand = String(Math.random());
+	addGameJS(shorthand, code, ip)
+	.then(newGameId => {
 		console.log(`${new Date().toISOString()} upload`, ip, 'OK', newGameId);
+		res.redirect(`../game/${shorthand}/`);
+	})
+	.catch(err => {
+		console.log(`${new Date().toISOString()} upload`, ip, 'FAILED - error in addGameJS', err);
+		res.send('failed');
 	});
 });
 
