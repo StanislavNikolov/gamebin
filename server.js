@@ -25,7 +25,6 @@ const uploadFileLimiter = rateLimit({
   message: "Too many uploads from this IP, please try again after an hour"
 });
 
-
 app.use('/pishtov', express.static(__dirname + '/pishtov'));
 
 app.get('/',              (req, res) => res.redirect(`upload`));
@@ -66,7 +65,7 @@ app.get('/game/:gameId/images/:image', (req, res) => {
 	res.redirect(`../../../pishtov/images/${req.params.image}`);
 });
 
-const addGameJS = async (shorthand, code, ip) => {
+const addGameJS = async (shorthand, code, isPublic, isObfuscated, ip) => {
 	const client = await db.connect();
 
 	try {
@@ -74,12 +73,12 @@ const addGameJS = async (shorthand, code, ip) => {
 		const insertGameSQL = `
 			INSERT INTO games(is_public, shorthand, pishtov_version, uploader_ip, upload_date)
 			VALUES($1, $2, $3, $4, $5) RETURNING id `;
-		const gres = await client.query(insertGameSQL, [true, shorthand, 'asd', ip, new Date()]);
+		const gres = await client.query(insertGameSQL, [isPublic, shorthand, 'asd', ip, new Date()]);
 
 		const insertFileSQL = `
 			INSERT INTO files(game_id, content, is_obfuscated)
 			VALUES ($1, $2, $3)`;
-		await client.query(insertFileSQL, [gres.rows[0].id, code, false]);
+		await client.query(insertFileSQL, [gres.rows[0].id, code, isObfuscated]);
 
 		await client.query('COMMIT');
 
@@ -116,8 +115,8 @@ app.post('/upload', uploadFileLimiter, (req, res) => {
 		return;
 	}
 
-	const shorthand = String(Math.random());
-	addGameJS(shorthand, code, ip)
+	const shorthand = Math.random().toString(36).substring(2, 8); // random string
+	addGameJS(shorthand, code, req.body.public, req.body.obfuscate, ip)
 	.then(newGameId => {
 		console.log(`${new Date().toISOString()} upload`, ip, 'OK', newGameId);
 		res.redirect(`../game/${shorthand}/`);
@@ -134,7 +133,7 @@ app.get('/list', async (req, res) => {
 			SELECT shorthand, upload_date
 			FROM games
 			WHERE is_public = true
-			ORDER BY upload_date desc
+			ORDER BY upload_date DESC
 		`;
 
 		const {rows} = await db.query(SQL, []);
@@ -143,7 +142,7 @@ app.get('/list', async (req, res) => {
 			return `${date} - <a href="game/${curr.shorthand}/">${curr.shorthand}</a>`;
 		}).join('<br>');
 
-		res.send(`Showing <b>${rows.length}</b> public games:<br>` +html);
+		res.send(`Showing <b>${rows.length}</b> public games:<br><br>` + html);
 	} catch(error) {
 		console.error(error);
 		res.status(500).send("Something went wrong :<");

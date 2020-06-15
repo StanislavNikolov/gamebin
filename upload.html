@@ -133,6 +133,12 @@
 			</div>
 		</div>
 		<div id="bottom">
+			<input type="checkbox" id="obfuscate_checkbox">
+			<label for="obfuscate_checkbox" style="margin-right: 3em">Обфускирай ми кода</label>
+			<input type="checkbox" id="isprivate_checkbox">
+			<label for="obfuscate_checkbox">Скрии ми кода от /list</label>
+			<br>
+			<br>
 			<button type=button class="coolbtn disabledbtn" id="submit-btn" onclick="userClick()"> Готов съм! </button>
 		</div>
 	</div>
@@ -267,6 +273,8 @@
 		const formData = new FormData();
 		formData.append('textarea', document.getElementById('textarea').value);
 		formData.append('file', document.querySelector('input[type="file"]').files[0]);
+		formData.append('obfuscate', document.querySelector('input[id="obfuscate_checkbox"]').checked);
+		formData.append('public', !document.querySelector('input[id="isprivate_checkbox"]').checked);
 
 		fetch('upload/', {
 			method: 'POST',
