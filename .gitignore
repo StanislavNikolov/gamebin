@@ -1,4 +1,2 @@
-ujs/*
-!ujs/.gitkeep
 tmp/*
 !tmp/.gitkeep

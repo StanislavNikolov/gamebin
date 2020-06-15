@@ -122,21 +122,26 @@ app.post('/upload', uploadFileLimiter, (req, res) => {
 	});
 });
 
-app.get('/list', (req, res) => {
-	const path = `${__dirname}/ujs`;
-	let result_html = '';
-	fs.readdir(path, (err, files) => {
-		let arr = [];
-		for(const file of files) {
-			const date = new Date(fs.statSync(`${path}/${file}`).mtime.getTime());
-			arr.push({date: date, file: file});
-		}
-		arr.sort((a, b) => a.date - b.date);
-		for(const p of arr) {
-			result_html += `<a href="game/${p.file}/">${p.file}</a> - ${p.date}<br>`;
-		}
-		res.send(result_html);
-	});
+app.get('/list', async (req, res) => {
+	try {
+		const SQL = `
+			SELECT shorthand, upload_date
+			FROM games
+			WHERE is_public = true
+			ORDER BY upload_date desc
+		`;
+
+		const {rows} = await db.query(SQL, []);
+		const html = rows.map(curr => {
+			const date = curr.upload_date.toISOString().substring(0, 10);
+			return `${date} - <a href="game/${curr.shorthand}/">${curr.shorthand}</a>`;
+		}).join('<br>');
+
+		res.send(`Showing <b>${rows.length}</b> public games:<br>` +html);
+	} catch(error) {
+		console.error(error);
+		res.status(500).send("Something went wrong :<");
+	}
 });
 
 app.listen(port, () => console.log(`Listening on port ${port}!`));
