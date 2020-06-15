@@ -6,6 +6,8 @@ const fs      = require('fs');
 const rateLimit  = require("express-rate-limit");
 const fileUpload = require('express-fileupload');
 
+const jsObfuscator = require('javascript-obfuscator');
+
 const { Pool } = require('pg');
 const db = new Pool({
 	host: 'localhost',
@@ -37,7 +39,7 @@ app.get('/game/:shorthand/game.js', async (req, res) => {
 	try {
 		const shorthand = req.params.shorthand;
 		const SQL = `
-			SELECT content
+			SELECT content, is_obfuscated
 			FROM files
 			JOIN games ON game_id = games.id
 			WHERE games.shorthand = $1
@@ -49,7 +51,11 @@ app.get('/game/:shorthand/game.js', async (req, res) => {
 			return;
 		}
 
-		res.send(rows[0].content);
+		if(rows[0].is_obfuscated) {
+			res.send(jsObfuscator.obfuscate(rows[0].content).getObfuscatedCode());
+		} else {
+			res.send(rows[0].content);
+		}
 	} catch(error) {
 		console.error(error);
 		res.status(500).send("Something went wrong :<");
