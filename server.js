@@ -50,6 +50,7 @@ app.get('/game/:shorthand/game.js', async (req, res) => {
 			return;
 		}
 
+		res.set('Content-Type', 'text/javascript'); // browsers give warnings if mime is incorrect
 		if(rows[0].is_obfuscated) {
 			res.send(jsObfuscator.obfuscate(rows[0].content).getObfuscatedCode());
 		} else {
@@ -137,12 +138,14 @@ app.get('/list', async (req, res) => {
 		`;
 
 		const {rows} = await db.query(SQL, []);
-		const html = rows.map(curr => {
+		const gameListHTML = rows.map(curr => {
 			const date = curr.upload_date.toISOString().substring(0, 10);
 			return `${date} - <a href="game/${curr.shorthand}/">${curr.shorthand}</a>`;
 		}).join('<br>');
 
-		res.send(`Showing <b>${rows.length}</b> public games:<br><br>` + html);
+		const style = `<style>a { font-family: monospace; }</style>`;
+		const header = `Showing <b>${rows.length}</b> public games:<br><br>`;
+		res.send(style + header + gameListHTML);
 	} catch(error) {
 		console.error(error);
 		res.status(500).send("Something went wrong :<");
