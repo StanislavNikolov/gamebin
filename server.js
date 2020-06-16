@@ -104,15 +104,15 @@ app.post('/upload', uploadFileLimiter, (req, res) => {
 		code = req.files.file.data;
 	}
 
-	if(code.length >= MAX_FILE_SIZE) {
-		console.log(`${new Date().toISOString()} upload`, ip, `FAILED - file too big ${code.length}`);
-		res.send('file too big');
-		return;
-	}
-
 	if(code == null) {
 		console.log(`${new Date().toISOString()} upload`, ip, 'FAILED - did not send anything');
 		res.send('failed');
+		return;
+	}
+
+	if(code.length >= MAX_FILE_SIZE) {
+		console.log(`${new Date().toISOString()} upload`, ip, `FAILED - file too big ${code.length}`);
+		res.send('file too big');
 		return;
 	}
 
