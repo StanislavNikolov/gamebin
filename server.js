@@ -140,8 +140,9 @@ app.get('/list', async (req, res) => {
 		const {rows} = await db.query(SQL, []);
 		const gameListHTML = rows.map(curr => {
 			const upl = curr.upload_date;
-			const date = `${upl.toISOString().substring(0, 10)} ${upl.getHours()}:${upl.getMinutes()}`;
-			return `${date} - <a href="game/${curr.shorthand}/">${curr.shorthand}</a>`;
+			const date = upl.toISOString().substring(0, 10);
+			const time = `${String(upl.getHours()).padStart(2, '0')}:${String(upl.getMinutes()).padStart(2, '0')}`;
+			return `${date} ${time} - <a href="game/${curr.shorthand}/">${curr.shorthand}</a>`;
 		}).join('<br>');
 
 		const style = `<style>a { font-family: monospace; }</style>`;
