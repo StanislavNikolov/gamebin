@@ -93,6 +93,8 @@ const addGameJS = async (shorthand, code, isPublic, isObfuscated, ip) => {
 };
 
 app.post('/upload', uploadFileLimiter, (req, res) => {
+	res.header('Access-Control-Allow-Origin', '*');
+
 	const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
 
 	let code = null;
@@ -106,25 +108,28 @@ app.post('/upload', uploadFileLimiter, (req, res) => {
 
 	if(code == null) {
 		console.log(`${new Date().toISOString()} upload`, ip, 'FAILED - did not send anything');
-		res.send('failed');
+		res.json({error: 'bad request'});
 		return;
 	}
 
 	if(code.length >= MAX_FILE_SIZE) {
 		console.log(`${new Date().toISOString()} upload`, ip, `FAILED - file too big ${code.length}`);
-		res.send('file too big');
+		res.json({error: 'file limit exceeded'});
 		return;
 	}
 
+	const isPublic = req.body.public || false;
+	const obfuscate = req.body.obfuscate || false;
+
 	const shorthand = Math.random().toString(36).substring(2, 8); // random string
-	addGameJS(shorthand, code, req.body.public, req.body.obfuscate, ip)
+	addGameJS(shorthand, code, isPublic, obfuscate, ip)
 	.then(newGameId => {
 		console.log(`${new Date().toISOString()} upload`, ip, 'OK', newGameId);
-		res.redirect(`../game/${shorthand}/`);
+		res.json({url: `https://${req.headers.host}/game/${shorthand}/`});
 	})
 	.catch(err => {
 		console.log(`${new Date().toISOString()} upload`, ip, 'FAILED - error in addGameJS', err);
-		res.send('failed');
+		res.json({error: 'database error'});
 	});
 });
 

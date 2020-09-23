@@ -278,13 +278,11 @@
 
 		fetch('upload/', {
 			method: 'POST',
-			body: formData,
-			redirect: 'follow'
+			body: formData
 		})
-		.then(resp => {
-			if(resp.redirected) {
-				window.location.href = resp.url;
-			}
+		.then(resp => resp.json())
+		.then(data => {
+			window.location.href = data.url;
 		});
 	}
 	</script>
