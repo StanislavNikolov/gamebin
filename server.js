@@ -18,7 +18,7 @@ const db = new Pool({
 const MAX_FILE_SIZE = 50 * 1000; // in bytes
 app.use(fileUpload({ limits: { fileSize: MAX_FILE_SIZE } }));
 
-app.set('trust proxy', 1);
+app.set('trust proxy', true);
 const uploadFileLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour window
   max: 60,
@@ -125,7 +125,7 @@ app.post('/upload', uploadFileLimiter, (req, res) => {
 	addGameJS(shorthand, code, isPublic, obfuscate, ip)
 	.then(newGameId => {
 		console.log(`${new Date().toISOString()} upload`, ip, 'OK', newGameId);
-		res.json({url: `https://${req.headers.host}/game/${shorthand}/`});
+		res.json({url: `https://${req.hostname}/game/${shorthand}/`});
 	})
 	.catch(err => {
 		console.log(`${new Date().toISOString()} upload`, ip, 'FAILED - error in addGameJS', err);
