@@ -6,7 +6,7 @@ const fileUpload = require('express-fileupload');
 
 const app = express();
 
-app.set('trust proxy', 1);
+app.set('trust proxy', 1); // TODO true?
 app.use(fileUpload({ limits: { fileSize: config['LIMITS']['PER_FILE'] } }));
 
 // TODO make this configurable

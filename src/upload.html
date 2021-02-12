@@ -246,9 +246,25 @@ body {
 			redirect: 'follow'
 		})
 		.then(resp => {
-			if(resp.redirected) {
+			console.log(resp);
+			if(resp.status === 200) {
 				window.location.href = resp.url;
+				return;
 			}
+			// oh no, there was an error
+			resp.text().then(text => {
+				if(text === 'Shorthand too short.') {
+					showUser('error', 'Линка е твърде къс.'); return;
+				}
+				if(text === 'Shorthand exists.') {
+					showUser('error', 'Вече има друга игра със същият линк.'); return;
+				}
+				console.log(text);
+				showUser('error', 'Грешка при качването.');
+			})
+		})
+		.catch(error => {
+			showUser('error', 'Имаше грешка в мрежата при качването. Моля опитай отново.');
 		});
 	}
 	</script>

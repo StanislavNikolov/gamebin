@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "adm-zip": "^0.5.2",
     "express": "^4.17.1",
     "express-fileupload": "^1.1.7-alpha.3",
     "express-rate-limit": "^5.1.3",

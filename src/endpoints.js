@@ -1,5 +1,6 @@
 const config = require('./config.js');
 const db     = require('./db.js');
+const AdmZip = require('adm-zip');
 
 const getFileByGame = async (shorthand, filename) => {
 	const SQL = `
@@ -21,12 +22,131 @@ const checkGameExists = async (shorthand) => {
 	const SQL = 'SELECT 1 FROM games WHERE games.shorthand = $1';
 	const {rows} = await db.query(SQL, [shorthand]);
 	return rows.length > 0;
-};
+}
+
+const addGameByGameJSOnly = async (ip, shorthand, code) => {
+	const client = await db.connect();
+
+	try {
+		await client.query('BEGIN');
+		const insertGameSQL = `
+			INSERT INTO games(is_public, shorthand, uploader_ip, upload_date)
+			VALUES(true, $1, $2, $3) RETURNING id
+		`;
+		const gres1 = await client.query(insertGameSQL, [shorthand, ip, new Date()]);
+		const gameId = gres1.rows[0].id;
+
+		// TODO performance
+		// https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
+		// https://stackoverflow.com/questions/35265453/use-insert-on-conflict-do-nothing-returning-failed-rows
+		const insertFileSQL = `
+			INSERT INTO files(content) VALUES ($1)
+			ON CONFLICT DO NOTHING
+		`;
+		await client.query(insertFileSQL, [code]);
+
+		const getHashSQL = `SELECT MD5(content) AS hash FROM files WHERE content=$1`;
+		const hash = (await client.query(getHashSQL, [code])).rows[0].hash;
+
+		const insertGameJSRelation = `
+			INSERT INTO games_files (game_id, filename, file_contents_hash)
+			VALUES ($1, 'game.js', $2)
+		`;
+		await client.query(insertGameJSRelation, [gameId, hash]);
+
+		// TODO support other frameworks
+		const insertFrRelation = `
+			INSERT INTO games_files (game_id, filename, file_contents_hash)
+			SELECT $1, filename, file_contents_hash
+			FROM framework_files
+			WHERE framework_name = 'v1'
+		`;
+		await client.query(insertFrRelation, [gameId]);
+
+		await client.query('COMMIT');
+
+		return gameId;
+	} catch (e) {
+		await client.query('ROLLBACK');
+		if(e.code === '23505') { // unique_violation
+			throw new Error('shorthand exists');
+		} else {
+			console.error('addGameByGameJSOnly failed', e);
+			throw e;
+		}
+	} finally {
+		client.release();
+	}
+}
+
+const addGameByZIP = async (ip, shorthand, file) => {
+	const zip = new AdmZip(file.data);
+	const zipEntries = zip.getEntries();
+	if(zipEntries.length > 1000) {
+		throw Error('Too many files in the zip archive');
+	}
+
+	for(const entry of zipEntries) {
+		//console.log(entry.entryName);
+		if(zip.readFile(entry).length > config['LIMITS']['PER_FILE']) {
+			throw Error('File too big!');
+		}
+	}
+
+	const client = await db.connect();
+
+	try {
+		await client.query('BEGIN');
+		const insertGameSQL = `
+			INSERT INTO games(is_public, shorthand, uploader_ip, upload_date)
+			VALUES(true, $1, $2, $3) RETURNING id
+		`;
+		const gres1 = await client.query(insertGameSQL, [shorthand, ip, new Date()]);
+		const gameId = gres1.rows[0].id;
+
+		// TODO performance
+		// https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
+		// https://stackoverflow.com/questions/35265453/use-insert-on-conflict-do-nothing-returning-failed-rows
+		for(const entry of zipEntries) {
+			const filename = entry.name;
+			const content = zip.readFile(entry);
+
+			const insertFileSQL = `
+				INSERT INTO files(content) VALUES ($1)
+				ON CONFLICT DO NOTHING
+			`;
+			await client.query(insertFileSQL, [content]);
+
+			const getHashSQL = `SELECT MD5(content) AS hash FROM files WHERE content=$1`;
+			const hash = (await client.query(getHashSQL, [content])).rows[0].hash;
+
+			const insertGameJSRelation = `
+				INSERT INTO games_files (game_id, filename, file_contents_hash)
+				VALUES ($1, $2, $3)
+			`;
+			await client.query(insertGameJSRelation, [gameId, filename, hash]);
+		}
+
+		await client.query('COMMIT');
+
+		return gameId;
+	} catch (e) {
+		await client.query('ROLLBACK');
+		if(e.code === '23505') { // unique_violation
+			throw new Error('shorthand exists');
+		} else {
+			console.error('addGameByGameJSOnly failed', e);
+			throw e;
+		}
+	} finally {
+		client.release();
+	}
+}
 
 module.exports.serveGame = async (req, res) => {
 	const shorthand = req.params.shorthand;
 	if(!await checkGameExists(shorthand)) {
-		res.send(`Invalid game url`);
+		res.status(404).send(`Invalid game url`);
 		return;
 	}
 
@@ -55,7 +175,7 @@ module.exports.serveFile = async (req, res) => {
 
 	try {
 		// TODO dynamic type from db
-		res.set('Content-Type', 'text/javascript');
+		//res.set('Content-Type', 'text/javascript');
 		const {content} = await getFileByGame(shorthand, filename);
 		res.send(content);
 	} catch(ex) {
@@ -92,65 +212,6 @@ module.exports.serveFileByHash = async (req, res) => {
 }
 */
 
-const addGameByGameJSOnly = async (ip, shorthand, code) => {
-	if(code.length >= config['LIMITS']['PER_FILE']) {
-		console.log(`${new Date().toISOString()} upload`, ip, `FAILED - file too big ${code.length}`);
-		res.send('file too big');
-		throw new Error('Code is too big');
-		return;
-	}
-
-	console.log(code);
-	const client = await db.connect();
-
-	try {
-		await client.query('BEGIN');
-		const insertGameSQL = `
-			INSERT INTO games(is_public, shorthand, pishtov_version, uploader_ip, upload_date)
-			VALUES($1, $2, $3, $4, $5) RETURNING id
-		`;
-		const gres1 = await client.query(insertGameSQL, [true, shorthand, 'asd', ip, new Date()]);
-		const gameId = gres1.rows[0].id;
-
-		// TODO performance
-		// https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
-		// https://stackoverflow.com/questions/35265453/use-insert-on-conflict-do-nothing-returning-failed-rows
-		const insertFileSQL = `
-			INSERT INTO files(content) VALUES ($1)
-			ON CONFLICT DO NOTHING
-		`;
-		await client.query(insertFileSQL, [code]);
-
-		const getHashSQL = `SELECT MD5(content) AS hash FROM files WHERE content=$1`;
-		const hash = (await client.query(getHashSQL, [code])).rows[0].hash;
-
-		const insertGameJSRelation = `
-			INSERT INTO games_files (game_id, filename, file_contents_hash)
-			VALUES ($1, 'game.js', $2)
-		`;
-		await client.query(insertGameJSRelation, [gameId, hash]);
-
-		// TODO support other frameworks
-		const insertFrRelation = `
-			INSERT INTO games_files (game_id, filename, file_contents_hash)
-			SELECT $1, filename, file_contents_hash
-			FROM framework_files
-			WHERE framework_name = 'v1'
-		`;
-		await client.query(insertFrRelation, [gameId]);
-
-		await client.query('COMMIT');
-
-		return gameId;
-	} catch (e) {
-		console.log(e);
-		await client.query('ROLLBACK');
-		throw e;
-	} finally {
-		client.release();
-	}
-}
-
 module.exports.upload = async (req, res) => {
 	const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
 
@@ -159,22 +220,44 @@ module.exports.upload = async (req, res) => {
 		res.status(400).send('Bad request');
 	}
 
-	// TODO get shorthand from request
-	const shorthand = Math.random().toString(36).substring(2, 8); // random string
+	const shorthand = req.body.shorthand;
 
-	console.log(ip, shorthand, req.body);
-
-	if(typeof req.body.textarea === 'string') {
-		// using textarea, ignoring file
-		try {
-			await addGameByGameJSOnly(ip, shorthand, req.body.textarea);
-		} catch(ex) {
-			res.status(400).send('Bad request');
-			return;
-		}
+	if(typeof shorthand !== 'string') {
+		res.status(400).send(`Invalid game shorthand`);
+		return;
 	}
-	// TODO
-	//addGameByZIP(ip, shorthand, zip);
+	if(shorthand.length < 4) {
+		res.status(400).send(`Shorthand too short.`);
+		return;
+	}
+
+	console.log(`Upload request: ${ip}, ${shorthand}`);
+
+	try {
+		if(typeof req.body.textarea === 'string' && req.body.textarea.length > 1) {
+			// using textarea, ignoring file
+			if(req.body.textarea.length >= config['LIMITS']['PER_FILE']) {
+				console.log(`${new Date().toISOString()} upload`, ip, `FAILED - file too big ${code.length}`);
+				throw new Error('Code is too big');
+			}
+
+			await addGameByGameJSOnly(ip, shorthand, req.body.textarea);
+		} else {
+			if(req.files == null || req.files.file == null) {
+				res.status(400).send('Bad request');
+				return;
+			}
+			await addGameByZIP(ip, shorthand, req.files.file);
+		}
+	} catch(error) {
+		if(error.message === 'shorthand exists') {
+			res.status(400).send('Shorthand exists.');
+		} else {
+			console.error('Unknown error during upload:', error);
+			res.status(500).send('Something failed. Please try again.');
+		}
+		return;
+	}
 
 	res.redirect(`../game/${shorthand}/`);
 }
