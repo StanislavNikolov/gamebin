@@ -1,0 +1,14 @@
+{
+	"POSTGRES_HOST": "localhost",
+	"POSTGRES_PORT": 5432,
+	"POSTGRES_USER": "postgres",
+	"POSTGRES_PASS": "",
+	"DATABASE_NAME": "gamebin",
+
+	"LIMITS": {
+		"PER_FILE": 50000,
+		"PER_ZIP": 25000000
+	},
+
+	"LISTEN_PORT": 3114
+}
