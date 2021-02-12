@@ -8,6 +8,6 @@
     "pg": "^8.2.1"
   },
   "scripts": {
-    "start": "cd src; node server.js"
+    "start": "cd src; node index.js"
   }
 }

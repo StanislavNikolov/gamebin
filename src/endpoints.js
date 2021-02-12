@@ -230,6 +230,10 @@ module.exports.upload = async (req, res) => {
 		res.status(400).send(`Shorthand too short.`);
 		return;
 	}
+	if(shorthand.length > 32) {
+		res.status(400).send(`Shorthand too long.`);
+		return;
+	}
 
 	console.log(`Upload request: ${ip}, ${shorthand}`);
 

@@ -256,6 +256,9 @@ body {
 				if(text === 'Shorthand too short.') {
 					showUser('error', 'Линка е твърде къс.'); return;
 				}
+				if(text === 'Shorthand too long.') {
+					showUser('error', 'Линка е твърде дълъг.'); return;
+				}
 				if(text === 'Shorthand exists.') {
 					showUser('error', 'Вече има друга игра със същият линк.'); return;
 				}
