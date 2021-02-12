@@ -22,6 +22,7 @@ app.get('/noty.css',         (req, res) => res.sendFile(__dirname + '/node_modul
 app.get('/noty.min.js',      (req, res) => res.sendFile(__dirname + '/node_modules/noty/lib/noty.min.js'));
 
 //app.get('/files/:hash',       endpoints.serveFile);
+app.use('/lib/noty', express.static('../node_modules/noty/lib'));
 
 app.get('/game/:shorthand',   endpoints.serveGame);
 app.get('/game/:shorthand/*', endpoints.serveFile);
