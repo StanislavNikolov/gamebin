@@ -3,6 +3,7 @@ const { Pool } = require('pg');
 const oldDB = new Pool({
 	host: 'localhost',
 	user: 'postgres',
+	password: '1rf1cHV9u37g12Z0z',
 	database: 'gamebin',
 });
 
@@ -19,18 +20,20 @@ const addGameByGameJSOnly = async (ip, shorthand, uploadDate, code) => {
 		`;
 		const gres1 = await client.query(insertGameSQL, [shorthand, ip, uploadDate]);
 		const gameId = gres1.rows[0].id;
+		
+		const b64code = Buffer.from(code).toString('base64');
 
 		// TODO performance
 		// https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
 		// https://stackoverflow.com/questions/35265453/use-insert-on-conflict-do-nothing-returning-failed-rows
 		const insertFileSQL = `
-			INSERT INTO files(content) VALUES ($1)
+			INSERT INTO files(content) VALUES (DECODE($1, 'base64'))
 			ON CONFLICT DO NOTHING
 		`;
-		await client.query(insertFileSQL, [code]);
+		await client.query(insertFileSQL, [b64code]);
 
-		const getHashSQL = `SELECT MD5(content) AS hash FROM files WHERE content=$1`;
-		const hash = (await client.query(getHashSQL, [code])).rows[0].hash;
+		const getHashSQL = `SELECT MD5(content) AS hash FROM files WHERE content=DECODE($1, 'base64')`;
+		const hash = (await client.query(getHashSQL, [b64code])).rows[0].hash;
 
 		const insertGameJSRelation = `
 			INSERT INTO games_files (game_id, filename, file_contents_hash)
@@ -51,6 +54,7 @@ const addGameByGameJSOnly = async (ip, shorthand, uploadDate, code) => {
 
 		return gameId;
 	} catch (e) {
+		console.log(e);
 		await client.query('ROLLBACK');
 		if(e.code === '23505') { // unique_violation
 			throw new Error('shorthand exists');
