@@ -213,7 +213,14 @@ body {
 			return;
 		}
 
-		if(file.type !== 'application/zip') {
+		// https://stackoverflow.com/questions/4411757/zip-mime-types-when-to-pick-which-one
+		const allowedTypes = [
+			'application/zip', // Found on Brave, Ubuntu
+			'application/x-zip-compressed', // Found on Edge, Windows
+			'application/zip-compressed', // not sure if it can happen
+		];
+
+		if(!allowedTypes.includes(file.type)) {
 			fileuplEl.value = null;
 			showUser('warning', 'Трябва да качиш zip архив');
 			return;
