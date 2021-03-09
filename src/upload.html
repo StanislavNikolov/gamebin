@@ -207,7 +207,7 @@ body {
 
 		const file = fileuplEl.files[0];
 
-		if(file.size > 25 * 1000 * 1000) {
+		if(file.size > 25 * 1000 * 1000) { // TODO get this value from server
 			fileuplEl.value = null;
 			showUser('error', 'Качил си тврде голям файл!');
 			return;
@@ -253,17 +253,19 @@ body {
 			}
 			// oh no, there was an error
 			resp.text().then(text => {
-				if(text === 'Shorthand too short.') {
-					showUser('error', 'Линка е твърде къс.'); return;
-				}
-				if(text === 'Shorthand too long.') {
-					showUser('error', 'Линка е твърде дълъг.'); return;
-				}
-				if(text === 'Shorthand exists.') {
-					showUser('error', 'Вече има друга игра със същият линк.'); return;
-				}
 				console.log(text);
-				showUser('error', 'Грешка при качването.');
+
+				const translate = {};
+				translate['Invalid game shorthand'] = 'Невалидно име (url)';
+				translate['Shorthand too short'] = 'Линка е твърде къс';
+				translate['Shorthand too long'] = 'Линка е твърде дълъг';
+				translate['Shorthand exists'] = 'Вече има друга игра със същото име (url)';
+				translate['File too big'] = 'Твърде голям zip';
+				translate['File in zip too big'] = 'Zip-а съдържа твърде голям файл';
+				translate['Too many files in zip'] = 'Zip-а съдържа твърде много файлове';
+
+				if(text in translate) showUser('error', translate[text]);
+				else                  showUser('error', 'Неизвестна грешка при качването. Как успя да ме докараш до тук? Ако се счупи сайта, ти си виновен!!');
 			})
 		})
 		.catch(error => {

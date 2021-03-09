@@ -85,13 +85,21 @@ const addGameByZIP = async (ip, shorthand, file) => {
 	const zip = new AdmZip(file.data);
 	const zipEntries = zip.getEntries();
 	if(zipEntries.length > 1000) {
-		throw Error('Too many files in the zip archive');
+		throw Error('too many files');
 	}
 
+	let zipHasSingleDir = true;
+	let commonPrefix = null;
 	for(const entry of zipEntries) {
-		//console.log(entry.entryName);
+		const prefix = entry.entryName.split('/')[0];
+		//console.log(entry.entryName, prefix);
+		if(commonPrefix == null && prefix.length > 0) commonPrefix = prefix;
+		if(prefix !== commonPrefix) {
+			zipHasSingleDir = false;
+		}
+
 		if(zip.readFile(entry).length > config['LIMITS']['PER_FILE']) {
-			throw Error('File too big!');
+			throw Error('file too big');
 		}
 	}
 
@@ -110,7 +118,15 @@ const addGameByZIP = async (ip, shorthand, file) => {
 		// https://stackoverflow.com/questions/34708509/how-to-use-returning-with-on-conflict-in-postgresql
 		// https://stackoverflow.com/questions/35265453/use-insert-on-conflict-do-nothing-returning-failed-rows
 		for(const entry of zipEntries) {
-			const filename = entry.name;
+			if(entry.isDirectory) continue;
+
+			let filename = entry.entryName;
+			if(zipHasSingleDir) {
+				const path = entry.entryName.split('/');
+				path.shift(); // remove root
+				filename = path.join('/');
+			}
+
 			const content = zip.readFile(entry);
 
 			const insertFileSQL = `
@@ -229,11 +245,11 @@ module.exports.upload = async (req, res) => {
 		return;
 	}
 	if(shorthand.length < 4) {
-		res.status(400).send(`Shorthand too short.`);
+		res.status(400).send(`Shorthand too short`);
 		return;
 	}
 	if(shorthand.length > 32) {
-		res.status(400).send(`Shorthand too long.`);
+		res.status(400).send(`Shorthand too long`);
 		return;
 	}
 
@@ -244,7 +260,8 @@ module.exports.upload = async (req, res) => {
 			// using textarea, ignoring file
 			if(req.body.textarea.length >= config['LIMITS']['PER_FILE']) {
 				console.log(`${new Date().toISOString()} upload`, ip, `FAILED - file too big ${code.length}`);
-				throw new Error('Code is too big');
+				res.status(400).send('File too big');
+				return;
 			}
 
 			await addGameByGameJSOnly(ip, shorthand, req.body.textarea);
@@ -253,14 +270,23 @@ module.exports.upload = async (req, res) => {
 				res.status(400).send('Bad request');
 				return;
 			}
+			if(req.files.file.truncated) {
+				res.status(400).send('File too big');
+				return;
+			}
 			await addGameByZIP(ip, shorthand, req.files.file);
 		}
 	} catch(error) {
-		if(error.message === 'shorthand exists') {
-			res.status(400).send('Shorthand exists.');
-		} else {
-			console.error('Unknown error during upload:', error);
-			res.status(500).send('Something failed. Please try again.');
+		switch(error.message) {
+			case 'shorthand exists':
+				res.status(400).send('Shorthand exists'); break;
+			case 'file too big':
+				res.status(400).send('File in zip too big'); break;
+			case 'too many files':
+				res.status(400).send('Too many files in zip'); break;
+			default:
+				console.error('Unknown error during upload:', error);
+				res.status(500).send('Something failed. Please try again.');
 		}
 		return;
 	}

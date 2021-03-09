@@ -3,10 +3,10 @@
 	"POSTGRES_PORT": 5432,
 	"POSTGRES_USER": "postgres",
 	"POSTGRES_PASS": "",
-	"DATABASE_NAME": "gamebin",
+	"DATABASE_NAME": "gamebin_v3",
 
 	"LIMITS": {
-		"PER_FILE": 50000,
+		"PER_FILE": 5000000,
 		"PER_ZIP": 25000000
 	},
 
