@@ -1,9 +1,10 @@
+<!DOCTYPE html>
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body {
-	font-family: sans;
+	font-family: BlinkMacSystemFont,-apple-system,"Segoe UI",Roboto,Oxygen,Ubuntu,Cantarell,"Fira Sans","Droid Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
 }
 
 #mainpage {
@@ -126,11 +127,48 @@ body {
 	border-bottom-right-radius: 5px;
 }
 
+header {
+	background-color: #485fc7;
+	color: white;
+	padding: 1em;
+}
+
+header a {
+	color: white;
+	font-weight: bold;
+}
+
+@media only screen and (max-width: 40em) {
+	#top {
+		flex-direction: column;
+	}
+	#shorthand_tooltip {
+		display: block;
+	}
+	#left-text {
+		height: 6em;
+		margin-bottom: 1em;
+	}
+	#right-dnd {
+		max-width: initial;
+		height: initial;
+	}
+	#bottom {
+		margin-top: 2em;
+	}
+}
+
+
 </style>
 <link rel="stylesheet" type="text/css" href="lib/noty/noty.css">
 </head>
+
 <body>
 	<div id="mainpage">
+		<header>
+		Смяташ ли, че света е готов да види какво си сътворил? Качи си играта на <a href="https://codemarmalad.com">CodeMarmalad</a>.
+		</header>
+
 		<div id="notifications"></div>
 		<div id="top">
 			<div id="left-text">
@@ -146,7 +184,7 @@ body {
 			</div>
 		</div>
 		<div id="bottom">
-			Искам да получа линка:
+			<span id="shorthand_tooltip"> Искам да получа линка: </span>
 			<span id="shorthand_wrapper">
 				<span id="shorthand_prefix"></span><input type="text" id="shorthand_input"></input>
 			</span>
