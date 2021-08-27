@@ -3,6 +3,7 @@ const db     = require('./db.js');
 const AdmZip = require('adm-zip');
 
 const getFileByGame = async (shorthand, filename) => {
+	console.log(shorthand, filename);
 	const SQL = `
 		SELECT content
 		FROM games
@@ -61,7 +62,7 @@ const addGameByGameJSOnly = async (ip, shorthand, code) => {
 			INSERT INTO games_files (game_id, filename, file_contents_hash)
 			SELECT $1, filename, file_contents_hash
 			FROM framework_files
-			WHERE framework_name = 'v1'
+			WHERE framework_name = 'v2'
 		`;
 		await client.query(insertFrRelation, [gameId]);
 

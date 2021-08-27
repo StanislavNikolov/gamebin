@@ -2,27 +2,38 @@
  * because postgres refuses to do read_file
  */
 
+const FRAMEWORK_ID = 'v2';
+
 const db = require('../db.js');
 const fs = require('fs');
 
-const readDir = (path, client) => {
+const readDir = async (path, client) => {
 	let filenames;
 	try {
 		filenames = fs.readdirSync(path);
 	} catch(ex) { console.log(ex); return; }
 	for(const file of filenames) {
+
+		if(file === 'game.js') {
+			console.log(`IGNORING ${path}/${file}`);
+			continue;
+		}
+
 		try {
-			const data = fs.readFileSync(`${path}/${file}`, 'hex');
+			const data = fs.readFileSync(`${path}/${file}`);
+			const b64data = Buffer.from(data).toString('base64');
 			const f = `${path}/${file}`.substr(2);
-			console.log(f, data.substr(0, 10));
-			client.query('INSERT INTO files(content) VALUES ($1) ON CONFLICT DO NOTHING', [data]);
-			client.query(`
+			console.log('Uploading', f);
+			await client.query("INSERT INTO files(content) VALUES (DECODE($1, 'base64')) ON CONFLICT DO NOTHING", [b64data]);
+			await client.query(`
 				INSERT INTO framework_files(framework_name, filename, file_contents_hash)
-				VALUES ('v1', $1, MD5($2))
-			`, [f, '\\x' + data]);
+				VALUES ($1, $2, MD5(DECODE($3, 'base64')))
+			`, [FRAMEWORK_ID, f, b64data]);
 		} catch(ex) {
 			if(ex.errno == -21 && file !== '.git') {
-				readDir(`${path}/${file}`, client);
+				await readDir(`${path}/${file}`, client);
+			} else {
+				console.log('Failed ', file, ex)
 			}
 		}
 
@@ -31,8 +42,8 @@ const readDir = (path, client) => {
 
 db.connect().then(client => {
 	process.chdir('pishtov');
-	client.query('BEGIN');
-	readDir('.', client);
-	client.query('COMMIT');
-	process.exit(0);
+	client.query('BEGIN')
+	.then(() => readDir('.', client))
+	.then(() => client.query('COMMIT'))
+	.then(() => process.exit(0));
 })

@@ -27,6 +27,7 @@ CREATE TABLE framework_files (
 	framework_name TEXT NOT NULL,
 	-- 255 is the maximum rel. path + file
 	filename VARCHAR(255) NOT NULL,
-	file_contents_hash CHAR(32) NOT NULL
+	file_contents_hash CHAR(32) NOT NULL,
+	UNIQUE (framework_name, filename)
 );
 
